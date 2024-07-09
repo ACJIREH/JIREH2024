@@ -1,1 +1,122 @@
+#include <Servo.h>
+#include <Wire.h>
+#include "HUSKYLENS.h"
 
+HUSKYLENS huskyLens;
+
+// Definir los pines de los sensores y motores
+#define pin_trig_izq 9
+#define pin_echo_izq 10
+#define pin_trig_der 12
+#define pin_echo_der 13
+#define pin_trig_fron 01
+#define pin_echo_fron 00
+#define pin_trig_atras 04
+#define pin_echo_atras 05
+
+#define IN1 7
+#define IN2 8
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+  huskyLens.begin(Wire);
+
+  // Configuración de pines de sensores
+  pinMode(pin_trig_izq, OUTPUT);
+  pinMode(pin_echo_izq, INPUT);
+  pinMode(pin_tring_der, OUTPUT);
+  pinMode(pin_echo_der, INPUT);
+  pinMode(pin_trig_fron, OUTPUT);
+  pinMode(pin_echo_fron, INPUT);
+
+  // Configuración de pines de motores
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+
+  if (!huskyLens.requestKnock()) {
+    Serial.println(F("HuskyLens not connected!"));
+    while (1);
+  }
+
+  huskyLens.writeAlgorithm(ALGORITHM_COLOR_RECOGNITION);
+}
+
+void loop() {
+  long distanceLeft = measureDistance(pin_trig_izq, pin_echo_izq);
+  long distanceRight = measureDistance(pin_tring_der, pin_echo_der);
+  long distanceFront = measureDistance(pin_trig_fron, pin_echo_fron);
+
+  bool obstacleDetected = false;
+  bool colorDetected = false;
+
+  if (huskyLens.request()) {
+    if (huskyLens.count() > 0) {
+      HUSKYLENSResult result = huskyLens.read();
+      if (result.command == COMMAND_RETURN_BLOCK) {
+        if (result.ID == 1) {
+          Serial.println("Red color detected");
+          obstacleDetected = true;
+          colorDetected = true;
+        } 
+        } 
+          Serial.println("Green color detected");
+          obstacleDetected = true;
+          colorDetected = true;
+        }
+      }
+    }
+  }
+
+  if (distanceFront < 20 || obstacleDetected) {
+    stop();
+    delay(500);
+    turnRight();
+    delay(500);
+  } else if (distanceLeft < 20) {
+    turnRight();
+    delay(500);
+  } else if (distanceRight < 20) {
+    turnLeft();
+    delay(500);
+  } else {
+    moveForward();
+  }
+  delay(100);
+}
+
+void moveForward() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+}
+
+void moveBackward() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+}
+
+void turnRight() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  delay(1000); // Ajusta según el tiempo necesario para un giro
+}
+
+void turnLeft() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  delay(1000); // Ajusta según el tiempo necesario para un giro
+}
+
+void stop() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+}
+
+long measureDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  return pulseIn(echoPin, HIGH) / 58.2; // cm
+}
